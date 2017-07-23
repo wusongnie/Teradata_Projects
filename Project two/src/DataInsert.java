@@ -33,13 +33,13 @@ public class DataInsert {
 			List<File> files = new ArrayList<File>();
 			List<File> badFiles = new ArrayList<File>();
 			listFile(filePath, files);// put the files to the list
-			String init1 = "create table if not exists psa (姓名 varchar(20) null , QID varchar(20) null,Total varchar(20) null, tasks varchar(200) null, "
+			String init1 = "create table if not exists psa (姓名 varchar(20) null,E_mail_Display_Name varchar(20) null,CN_Name varchar(20) null,QID varchar(20) null,Super__Pref__Nm varchar(20) null,Team varchar(20) null, Total varchar(20) null, "
 					+ "Billable_project_name varchar(60) null,  Billable_hrs varchar(20) null,"
-					+ "Presale_project_name varchar(100) null, Presale_hrs varchar(20) null, "
+					+ "Presale_project_name varchar(100) null, Presale_hrs varchar(20) null, 挂帐 varchar(20) null,"
 					+ "total_other_hrs  varchar(20) null, admin varchar(20) null, training varchar(20) null , holiday varchar(20) null , "
-					+ "annual_leave varchar(20) null , Others varchar(20) null , status varchar(20) null);";
+					+ "annual_leave varchar(20) null , Others varchar(20) null ,Demo varchar(20) null, presale_工作描述 varchar(200) null,tasks varchar(200) null,  status varchar(20) null);";
 			String init2 = "alter table psa convert to character set utf8mb4 collate utf8mb4_bin;";
-
+			
 			// create the table
 			PreparedStatement ps = conn.prepareStatement(init1.toString());
 			ps.execute();
@@ -54,8 +54,13 @@ public class DataInsert {
 			boolean badInput = false;
 			for (File xlsx : files) {
 				if (xlsx.getName().substring(0, 1).equals(".") || xlsx.getName().substring(0, 1).equals("~")
-						|| xlsx.getName().indexOf("Billable Hours") != -1)
+						|| xlsx.getName().indexOf("Billable Hours") != -1){
 					continue;
+				}
+				if(xlsx.getName().substring(0, 7).equals("profile")){
+					updateTable(xlsx.getAbsolutePath());
+				}
+					
 				String xlsxFile = xlsx.getPath();
 				System.out.println("正在录入..." + xlsxFile);
 				badInput = insertData(xlsxFile);
@@ -81,7 +86,35 @@ public class DataInsert {
 		}
 
 	}
-
+	private static void updateTable(String filePath) throws IOException, SQLException {
+		String update = "update psa set ";
+		ExcelReader excelReader = new ExcelReader();
+		FileInputStream is = new FileInputStream(filePath);
+		XSSFWorkbook wb = new XSSFWorkbook(is);
+		XSSFRow row = wb.getSheetAt(0).getRow(0);
+		String[] colname = new String[row.getLastCellNum()];
+		PreparedStatement ps = null;
+		for(int i = 0; i < row.getLastCellNum();i++){
+			colname[i] = excelReader.getStringCellValue((row.getCell(i))).replaceAll("\\.", " ").replaceAll(" ", "_");
+			colname[i] = colname[i].replaceAll("-", "_").replaceAll("'", " ");
+			System.out.println(colname[i]);
+		}
+		for (int i = 1; i < wb.getSheetAt(0).getLastRowNum();i++){
+			row = wb.getSheetAt(0).getRow(i);
+			for(int j = 0; j < row.getLastCellNum();j++){
+				if(j != row.getLastCellNum()-1)
+					update = update + colname[j] + "=" + excelReader.getStringCellValue((row.getCell(j))) + " , ";
+				else
+					update = update + colname[j] + "=" + excelReader.getStringCellValue((row.getCell(j)));
+			}
+			update = update + " where UPPER(QID) = UPPER (" + excelReader.getStringCellValue((row.getCell(2))) + ");";
+			System.out.println(update);
+			ps = conn.prepareStatement(update.toString());
+			ps.execute();
+			update = "update psa set ";
+		}
+		
+	}
 	private static void listFile(String directoryName, List<File> fileNames) {
 		File directory = new File(directoryName);
 
@@ -160,6 +193,11 @@ public class DataInsert {
 
 			for (String[] array : dataList) {
 				String sql = new String(sqlBegin);
+				for (int k = 0; k < array.length; k++) {
+					if (array[k].equals("0.0")) {
+						array[k] = "' '";
+					}
+				}
 				for (int k = 0; k < array.length; k++) {
 					if (k != array.length - 1) {
 						sql = sql + array[k] + ",";
