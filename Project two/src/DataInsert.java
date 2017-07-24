@@ -25,7 +25,7 @@ public class DataInsert {
 	public static Connection conn;
 	public static String filePath = "/Users/wusongnie/Desktop/project2";
 	public static String badFilePath = "/Users/wusongnie/Desktop/bad";
-
+	
 	public static void main(String[] args) throws Exception {
 		try {
 			Class.forName(driver);
@@ -115,6 +115,27 @@ public class DataInsert {
 		}
 		
 	}
+	
+	private static void updatePresale(String filePath) throws IOException, SQLException {
+		String update = "update psa set ";
+		ExcelReader excelReader = new ExcelReader();
+		FileInputStream is = new FileInputStream(filePath);
+		XSSFWorkbook wb = new XSSFWorkbook(is);
+		
+		
+		PreparedStatement ps = null;
+		for(int i = 0; i < 5;i++){
+			XSSFRow row = wb.getSheetAt(0).getRow(i+6);
+			update = update + "presale_工作描述" + "=" + excelReader.getStringCellValue((row.getCell(2)));
+			update = update + " where UPPER(Presale_project_name) = UPPER (" + excelReader.getStringCellValue((row.getCell(0))) + ");";
+			System.out.println(update);
+			ps = conn.prepareStatement(update.toString());
+			ps.execute();
+			update = "update psa set ";
+		}
+		
+		
+	}
 	private static void listFile(String directoryName, List<File> fileNames) {
 		File directory = new File(directoryName);
 
@@ -133,7 +154,6 @@ public class DataInsert {
 
 	public static void copyFile(String oldPath, String newPath) {
 		try {
-			int bytesum = 0;
 			int byteread = 0;
 			File oldfile = new File(oldPath);
 			if (oldfile.exists()) { // if the file is existing
@@ -145,7 +165,6 @@ public class DataInsert {
 				FileOutputStream outStream = new FileOutputStream(newPath);
 				byte[] buffer = new byte[1444];
 				while ((byteread = inStream.read(buffer)) != -1) {
-					bytesum += byteread;
 					outStream.write(buffer, 0, byteread);
 				}
 				inStream.close();
@@ -159,7 +178,7 @@ public class DataInsert {
 
 	}
 
-	@SuppressWarnings({ "resource" })
+	
 	public static boolean insertData(String filePath) {
 		boolean badInput = false;
 		try {
@@ -216,6 +235,7 @@ public class DataInsert {
 				ps.execute();
 				sql = "";
 				sql = sqlBegin.toString();
+				updatePresale(filePath);
 			}
 
 		} catch (FileNotFoundException e) {
