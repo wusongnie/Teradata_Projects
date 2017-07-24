@@ -101,6 +101,9 @@ public class DataInsert {
 		}
 		for (int i = 1; i < wb.getSheetAt(0).getLastRowNum();i++){
 			row = wb.getSheetAt(0).getRow(i);
+			if(excelReader.getStringCellValue((row.getCell(0))).equals("' '")){
+				break;
+			}
 			for(int j = 0; j < row.getLastCellNum();j++){
 				if(j != row.getLastCellNum()-1)
 					update = update + colname[j] + "=" + excelReader.getStringCellValue((row.getCell(j))) + " , ";
@@ -126,6 +129,9 @@ public class DataInsert {
 		PreparedStatement ps = null;
 		for(int i = 0; i < 5;i++){
 			XSSFRow row = wb.getSheetAt(0).getRow(i+6);
+			if(excelReader.getStringCellValue((row.getCell(2))).equals("' '")){
+				break;
+			}
 			update = update + "presale_工作描述" + "=" + excelReader.getStringCellValue((row.getCell(2)));
 			update = update + " where UPPER(Presale_project_name) = UPPER (" + excelReader.getStringCellValue((row.getCell(0))) + ");";
 			System.out.println(update);
@@ -143,7 +149,9 @@ public class DataInsert {
 		File[] fList = directory.listFiles();
 		for (File file : fList) {
 			if (file.isFile()) {
-				fileNames.add(file);
+				if (!fileNames.contains(file)){
+					fileNames.add(file);
+				}
 				System.out.println(file);
 			} else if (file.isDirectory()) {
 				listFile(file.getAbsolutePath(), fileNames);
