@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
@@ -20,59 +21,92 @@ import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
+/////////////////////////////////////////////////////////////////////////////
+//Title         	   PSA
+//文件            DataInsert.java, ExcelReader.java
+//
+//Author Songnie Wu
+////////////////////////////80 columns wide //////////////////////////////////
+/**
+ * This program reads the appropriate excel file and convert them to the
+ * assembiled file needed by the PSA. 
+ * Exception handling: Will put the excels that contains bad inputs to another directory.
+ *
+ * 
+ * Bugs: N/A
+ *
+ * @author Songnie WU
+ */
 public class DataInsert {
 
 	public static List<HashMap<String, String>> table = new ArrayList<HashMap<String, String>>();
-	
 
-
+	// filePath contains the file to be input
+	// badFilePath are the place where bad input files are stored
 	public static String filePath = "/Users/wusongnie/Desktop/project2";
 	public static String badFilePath = "/Users/wusongnie/Desktop/bad";
 
+	/**
+	 * Main: The brain of this whole f***ing program.
+	 * 
+	 * @param args
+	 * @throws Exception
+	 */
 	public static void main(String[] args) throws Exception {
 		try {
 			List<File> files = new ArrayList<File>();
 			List<File> badFiles = new ArrayList<File>();
-			listFile(filePath, files);// put the files to the list
-
+			listFile(filePath, files);// traverse the directory recursively, put
+										// the files into the list
+			// the heads are the head of the target table
 			String[] heads = { "E_mail_Display_Name", "CN_Name", "QID", "Super__Pref__Nm", "Team", "Total",
-					"Billable_project_name", "Billable_hrs", "Presale_project_name", "Presale_hrs",
-					"total_other_hrs", "admin", "training", "holiday", "annual_leave", "Others", "presale_工作描述",
-					"status" };
-			System.out.println("psa database初始化完成！");
-			boolean badInput = false;
-			String updater = null;
+					"Billable_project_name", "Billable_hrs", "Presale_project_name", "Presale_hrs", "total_other_hrs",
+					"admin", "training", "holiday", "annual_leave", "Others", "presale_工作描述", "status" };
+			System.out.println("psa database initialized!");
+
+			boolean badInput = false; // badInput indicates if the file contains
+										// bad input
+			String updater = null; // updater stores the file that will update
+									// some particular inputs
 			for (File xlsx : files) {
 				if (xlsx.getName().substring(0, 1).equals(".") || xlsx.getName().substring(0, 1).equals("~")
 						|| xlsx.getName().indexOf("Billable Hours") != -1) {
-					continue;
+					continue;// skip the files starting with "Billable hours"
 				}
 				if (xlsx.getName().substring(0, 7).equals("profile")) {
-					updater = xlsx.getAbsolutePath();
+					updater = xlsx.getAbsolutePath(); // "profile" is an
+														// updater, skip it and
+														// handle it in the
+														// future
 					continue;
 				}
 
 				String xlsxFile = xlsx.getPath();
-				System.out.println("正在录入..." + xlsxFile);
+
+				System.out.println("Handling..." + xlsxFile);
+
 				badInput = insertData(xlsxFile);
-				System.out.println(xlsx.getName() + "已进入数据库！");
+
+				System.out.println(xlsx.getName() + "Finished!");
 				if (badInput) {
 					copyFile(xlsxFile, badFilePath + "/" + xlsx.getName());
-					badFiles.add(xlsx);
-					System.out.println(xlsx.getName() + "已记录不良数据！");
+					badFiles.add(xlsx);// put the bad input files into the list
+					System.out.println(xlsx.getName() + " bad file recorded");
 				}
 			}
-			System.out.println("成功！所有表均已进入数据库！");
-			System.out.println("所有表均已进入数据库,但请检查以下不良数据：");
+			System.out.println("Successfully put all the files into new file");// remind the user
+			System.out.println("Please check the files below:");
 			for (File bad : badFiles) {
 				System.out.println(bad.getPath());
+				// print out all the files with a bad input
 			}
-			updateTable(updater);
+			updateTable(updater); // use the profile to update the table
 			XSSFWorkbook outputWb = new XSSFWorkbook();
 			XSSFSheet sheet = outputWb.createSheet("psa");
 			int i = 1;
 			int j = 0;
 			XSSFRow Row1 = sheet.createRow(0);
+			// following code generates the column heads
 			for (String key : heads) {
 				XSSFCell cell = Row1.createCell(j);
 				cell.setCellType(XSSFCell.CELL_TYPE_STRING);
@@ -80,29 +114,60 @@ public class DataInsert {
 				j++;
 			}
 			j = 0;
+			List<HashMap<String, String>> bads = new ArrayList<HashMap<String, String>>();
+			// following code traverse the whole hashMap and creates an excel
+			// file out of the hashMap
 			for (HashMap<String, String> row : table) {
+				if (row.get("status").equals("异常")) {
+					bads.add(row);
+					continue;
+				}
 				XSSFRow tempRow = sheet.createRow(i);
 				for (String key : heads) {
 					XSSFCell cell = tempRow.createCell(j);
-					cell.setCellType(XSSFCell.CELL_TYPE_STRING);
-					if (row.get(key) != null){
-						String k = row.get(key).replaceAll("'", "");
+					cell.setCellType(XSSFCell.CELL_TYPE_STRING);// set the cell
+																// type to
+																// String
+					if (row.get(key) != null) {
+						String k = row.get(key).replaceAll("'", ""); // cleans
+																		// the
+																		// "'"
 						cell.setCellValue(k);
-					}else{
+					} else {
 						cell.setCellValue(row.get(key));
 					}
-					
-					
+
 					j++;
 				}
 				j = 0;
 				++i;
 			}
+			for (HashMap<String, String> row : bads) {
+				XSSFRow tempRow = sheet.createRow(i);
+				for (String key : heads) {
+					XSSFCell cell = tempRow.createCell(j);
+					cell.setCellType(XSSFCell.CELL_TYPE_STRING);// set the cell
+																// type to
+																// String
+					if (row.get(key) != null) {
+						String k = row.get(key).replaceAll("'", ""); // cleans
+																		// the
+																		// "'"
+						cell.setCellValue(k);
+					} else {
+						cell.setCellValue(row.get(key));
+					}
 
+					j++;
+				}
+				j = 0;
+				++i;
+			}
+			// create the file in the targeted folder
 			FileOutputStream fos = new FileOutputStream("/Users/wusongnie/Desktop/1.xls");
 			outputWb.write(fos);
 			fos.flush();
-			System.out.println("存盘完成！");
+			System.out.println("存盘完成！");// reminds the user
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -110,6 +175,14 @@ public class DataInsert {
 
 	}
 
+	/**
+	 * 
+	 * 本方法用于插入一般性的数据，不包含文件名为“profile”的表
+	 * 
+	 * @param filePath
+	 *            表示本文件的路径
+	 * @return badInput 表示本文件是否含有异常输入
+	 */
 	public static boolean insertData(String filePath) {
 		boolean badInput = false;
 		try {
@@ -193,38 +266,37 @@ public class DataInsert {
 		List<HashMap<String, String>> tablek = new ArrayList<HashMap<String, String>>();
 		ExcelReader excelReader = new ExcelReader();
 		FileInputStream is = new FileInputStream(filePath);
-		
+
 		XSSFWorkbook wb = new XSSFWorkbook(is);
 		XSSFRow row = wb.getSheetAt(0).getRow(0);
 		String[] colname = new String[row.getLastCellNum()];
-		
+
 		HashMap<String, String> temp = null;
 		HashMap<String, String> perm = new HashMap<String, String>();
-		
+
 		for (int i = 0; i < row.getLastCellNum(); i++) {
 			colname[i] = excelReader.getStringCellValue((row.getCell(i))).replaceAll("\\.", " ").replaceAll(" ", "_");
 			colname[i] = colname[i].replaceAll("-", "_").replaceAll("'", " ");
 		}
 		for (int i = 1; i < wb.getSheetAt(0).getLastRowNum(); i++) {
-			
+
 			row = wb.getSheetAt(0).getRow(i);
 			if (excelReader.getStringCellValue((row.getCell(0))).equals("' '")) {
 				break;
 			}
-			
-			for(int k = 0; k<table.size();k++){
-					temp = table.get(k);
-					if (temp.get("QID").equalsIgnoreCase(excelReader.getStringCellValue((row.getCell(2))))){
-						for (int j = 0; j < row.getLastCellNum(); j++) {
-							if(!temp.containsKey(colname[j])){
-								temp.put(colname[j].trim(), excelReader.getStringCellValue((row.getCell(j))));
-							}	
+
+			for (int k = 0; k < table.size(); k++) {
+				temp = table.get(k);
+				if (temp.get("QID").equalsIgnoreCase(excelReader.getStringCellValue((row.getCell(2))))) {
+					for (int j = 0; j < row.getLastCellNum(); j++) {
+						if (!temp.containsKey(colname[j])) {
+							temp.put(colname[j].trim(), excelReader.getStringCellValue((row.getCell(j))));
 						}
 					}
-					
-					
+				}
+
 			}
-		
+
 		}
 	}
 
@@ -246,7 +318,7 @@ public class DataInsert {
 				map.put("presale_工作描述", excelReader.getStringCellValue((row.getCell(2))));
 			}
 		}
-		System.out.println("更新presale信息完成！");
+		System.out.println("Finished presale updating!");
 		return map;
 
 	}
@@ -288,7 +360,7 @@ public class DataInsert {
 				outStream.close();
 			}
 		} catch (Exception e) {
-			System.out.println("复制单个文件操作出错");
+			System.out.println("Error in copying files!");
 			e.printStackTrace();
 
 		}
