@@ -23,14 +23,14 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 /////////////////////////////////////////////////////////////////////////////
 //Title         	   PSA
-//文件            DataInsert.java, ExcelReader.java
+//Files            DataInsert.java, ExcelReader.java
 //
 //Author Songnie Wu
 ////////////////////////////80 columns wide //////////////////////////////////
 /**
  * This program reads the appropriate excel file and convert them to the
- * assembiled file needed by the PSA. 
- * Exception handling: Will put the excels that contains bad inputs to another directory.
+ * assembiled file needed by the PSA. Exception handling: Will put the excels
+ * that contains bad inputs to another directory.
  *
  * 
  * Bugs: N/A
@@ -94,7 +94,9 @@ public class DataInsert {
 					System.out.println(xlsx.getName() + " bad file recorded");
 				}
 			}
-			System.out.println("Successfully put all the files into new file");// remind the user
+			System.out.println("Successfully put all the files into new file");// remind
+																				// the
+																				// user
 			System.out.println("Please check the files below:");
 			for (File bad : badFiles) {
 				System.out.println(bad.getPath());
@@ -129,9 +131,7 @@ public class DataInsert {
 																// type to
 																// String
 					if (row.get(key) != null) {
-						String k = row.get(key).replaceAll("'", ""); // cleans
-																		// the
-																		// "'"
+						String k = row.get(key).replaceAll("'", "").replaceAll("X", "").replaceAll("x", ""); // cleans
 						cell.setCellValue(k);
 					} else {
 						cell.setCellValue(row.get(key));
@@ -187,29 +187,48 @@ public class DataInsert {
 		boolean badInput = false;
 		try {
 			List<String[]> dataList = new ArrayList<String[]>();
-			// read data form the excel
+			int startIndex = filePath.indexOf("PS");
+			int endIndex = filePath.indexOf("_工作周报");
+			String CNname = null;
+
+			if (startIndex > 0)
+				CNname = "'" + filePath.substring(startIndex + 2, endIndex) + "'";
+			else
+				return true;
 			ExcelReader excelReader = new ExcelReader();
 			FileInputStream is = new FileInputStream(filePath);
 			XSSFWorkbook wb = new XSSFWorkbook(is);
-			XSSFRow row = wb.getSheetAt(0).getRow(2);
-			badInput = testInput(wb);
+
+			XSSFRow row = wb.getSheetAt(0).getRow(0);
+
+			if (excelReader.getStringCellValue(row.getCell(0)).equalsIgnoreCase("'Quick Look Name'"))
+				return true;
+
 			HashMap<String, String> map = null;
+			int start = 0;
+
+			for (int i = 0; i < 50; i++) {
+				if (excelReader.getStringCellValue(row.getCell(i)).equalsIgnoreCase("'For PS Admin ONLY'")) {
+					start = i;
+					break;
+				}
+			}
+
+			badInput = testInput(wb, start);
 			for (int i = 0; i < 5; i++) {
 				row = wb.getSheetAt(0).getRow(2 + i);
-				if (excelReader.getStringCellValue(row.getCell(31)).equals(" ")
-						|| excelReader.getStringCellValue(row.getCell(31)).equals("0.0"))
+				if (excelReader.getStringCellValue(row.getCell(start + 1)).equals("' '")
+						|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("'0.0'"))
 					break;
 
 				String[] datas = new String[14];
 				for (int j = 0; j < 14; j++) {
-					datas[j] = excelReader.getStringCellValue(row.getCell(j + 29));
+					datas[j] = excelReader.getStringCellValue(row.getCell(start + j));
 				}
 
 				dataList.add(datas);
 
 			}
-
-			// form the SQL to make the insertion
 
 			String[] colNames = { "姓名", "QID", "Total", "Billable_project_name", "tasks", "Billable_hrs",
 					"Presale_project_name", "Presale_hrs", "total_other_hrs", "admin", "training", "holiday",
@@ -224,6 +243,7 @@ public class DataInsert {
 				for (int k = 0; k < array.length; k++) {
 					map.put(colNames[k], array[k]);
 				}
+				map.put("CN_Name", CNname);
 				if (badInput) {
 					map.put("status", "异常");
 				} else {
@@ -249,14 +269,14 @@ public class DataInsert {
 		return badInput;
 	}
 
-	private static boolean testInput(XSSFWorkbook wb) {
+	private static boolean testInput(XSSFWorkbook wb, int start) {
 		ExcelReader excelReader = new ExcelReader();
 		XSSFRow row = wb.getSheetAt(0).getRow(2);
-		if (excelReader.getStringCellValue(row.getCell(29)).equalsIgnoreCase("'XXX'")
-				|| excelReader.getStringCellValue(row.getCell(29)).equalsIgnoreCase("' '")
-				|| excelReader.getStringCellValue(row.getCell(30)).equals("0.0")
-				|| excelReader.getStringCellValue(row.getCell(30)).equals("' '")
-				|| excelReader.getStringCellValue(row.getCell(30)).equalsIgnoreCase("'XXX'")) {
+		if (excelReader.getStringCellValue(row.getCell(start)).equalsIgnoreCase("'XXX'")
+				|| excelReader.getStringCellValue(row.getCell(start)).equalsIgnoreCase("' '")
+				|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("0.0")
+				|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("' '")
+				|| excelReader.getStringCellValue(row.getCell(start + 1)).equalsIgnoreCase("'XXX'")) {
 			return true;
 		}
 		return false;
@@ -287,7 +307,7 @@ public class DataInsert {
 
 			for (int k = 0; k < table.size(); k++) {
 				temp = table.get(k);
-				if (temp.get("QID").equalsIgnoreCase(excelReader.getStringCellValue((row.getCell(2))))) {
+				if (temp.get("CN_Name").equalsIgnoreCase(excelReader.getStringCellValue((row.getCell(1))))) {
 					for (int j = 0; j < row.getLastCellNum(); j++) {
 						if (!temp.containsKey(colname[j])) {
 							temp.put(colname[j].trim(), excelReader.getStringCellValue((row.getCell(j))));
@@ -306,7 +326,6 @@ public class DataInsert {
 		ExcelReader excelReader = new ExcelReader();
 		FileInputStream is = new FileInputStream(filePath);
 		XSSFWorkbook wb = new XSSFWorkbook(is);
-
 		for (int i = 0; i < 5; i++) {
 
 			XSSFRow row = wb.getSheetAt(0).getRow(i + 6);
