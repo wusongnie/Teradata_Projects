@@ -65,7 +65,7 @@ public class ExcelReader {
 			strCell = "'" + xssfCell.getStringCellValue().replaceAll("\n|\r", " ") + "'";
 			break;
 		case XSSFCell.CELL_TYPE_NUMERIC:
-			strCell = String.valueOf(xssfCell.getNumericCellValue());
+			strCell = String.valueOf((int)xssfCell.getNumericCellValue());
 			break;
 		case XSSFCell.CELL_TYPE_BOOLEAN:
 			strCell = String.valueOf(xssfCell.getBooleanCellValue());
@@ -88,7 +88,7 @@ public class ExcelReader {
 		    	strCell = "''";
 		        break;
 		    case XSSFCell.CELL_TYPE_NUMERIC:
-				strCell = String.valueOf(xssfCell.getNumericCellValue());
+				strCell = String.valueOf((int)xssfCell.getNumericCellValue());
 				break;
 		    case XSSFCell.CELL_TYPE_ERROR:
 				strCell = "' '";

@@ -1,3 +1,22 @@
+
+
+/////////////////////////////////////////////////////////////////////////////
+//Title         	   PSA
+//文件            DataInsert.java, ExcelReader.java
+//
+//Author Songnie Wu
+////////////////////////////80 columns wide //////////////////////////////////
+/**
+* This program reads the appropriate excel file and convert them to the
+* assembiled file needed by the PSA. 
+* Exception handling: Will put the excels that contains bad inputs to another directory.
+*
+* 
+* Bugs: N/A
+*
+* @author Songnie WU
+*/
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -11,41 +30,41 @@ import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Properties;
 
 import org.apache.poi.xssf.usermodel.XSSFCell;
 import org.apache.poi.xssf.usermodel.XSSFRow;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
-/////////////////////////////////////////////////////////////////////////////
-//Title         	   PSA
-//Files            DataInsert.java, ExcelReader.java
-//
-//Author Songnie Wu
-////////////////////////////80 columns wide //////////////////////////////////
-/**
- * This program reads the appropriate excel file and convert them to the
- * assembiled file needed by the PSA. Exception handling: Will put the excels
- * that contains bad inputs to another directory.
- *
- * 
- * Bugs: N/A
- *
- * @author Songnie WU
- */
 public class DataInsert {
 
 	public static List<HashMap<String, String>> table = new ArrayList<HashMap<String, String>>();
 
-	// filePath contains the file to be input
-	// badFilePath are the place where bad input files are stored
-	public static String filePath = "/Users/wusongnie/Desktop/project2";
-	public static String badFilePath = "/Users/wusongnie/Desktop/bad";
-
+	public static String filePath = readProperties()[0];
+	public static String badFilePath = readProperties()[1];
+	public static String outPath = readProperties()[2];
+	public static String[] readProperties() {
+		String[] paths = new String[3];
+		Properties prop = new Properties();
+		try {
+			prop.load(DataInsert.class.getResourceAsStream("filePath.properties"));
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		paths[0]=prop.getProperty("Inpath");
+		paths[1]=prop.getProperty("Badpath");
+		paths[2]=prop.getProperty("Outpath");
+		return paths;
+		
+	}
 	/**
 	 * Main: The brain of this whole f***ing program.
 	 * 
@@ -59,7 +78,7 @@ public class DataInsert {
 			listFile(filePath, files);// traverse the directory recursively, put
 										// the files into the list
 			// the heads are the head of the target table
-			String[] heads = { "E_mail_Display_Name", "CN_Name", "QID", "Super__Pref__Nm", "Team", "Total",
+			String[] heads = { "No","E_mail_Display_Name", "CN_Name", "QID", "Super__Pref__Nm", "Team", "Total",
 					"Billable_project_name", "Billable_hrs", "Presale_project_name", "Presale_hrs", "total_other_hrs",
 					"admin", "training", "holiday", "annual_leave", "Others", "presale_工作描述", "status" };
 			System.out.println("psa database initialized!");
@@ -84,9 +103,9 @@ public class DataInsert {
 				String xlsxFile = xlsx.getPath();
 
 				System.out.println("Handling..." + xlsxFile);
-
-				badInput = insertData(xlsxFile);
-
+				
+				badInput = insertData(xlsxFile,xlsx.getName());
+				
 				System.out.println(xlsx.getName() + "Finished!");
 				if (badInput) {
 					copyFile(xlsxFile, badFilePath + "/" + xlsx.getName());
@@ -112,7 +131,7 @@ public class DataInsert {
 			for (String key : heads) {
 				XSSFCell cell = Row1.createCell(j);
 				cell.setCellType(XSSFCell.CELL_TYPE_STRING);
-				cell.setCellValue(key);
+				cell.setCellValue(key.replace("_", " "));
 				j++;
 			}
 			j = 0;
@@ -120,6 +139,9 @@ public class DataInsert {
 			// following code traverse the whole hashMap and creates an excel
 			// file out of the hashMap
 			for (HashMap<String, String> row : table) {
+				if (row.get("Total").equals("' '")||row.get("Total").equals(" ")||row.get("Total").equals("")) {
+					continue;
+				}
 				if (row.get("status").equals("异常")) {
 					bads.add(row);
 					continue;
@@ -150,7 +172,7 @@ public class DataInsert {
 																// type to
 																// String
 					if (row.get(key) != null) {
-						String k = row.get(key).replaceAll("'", ""); // cleans
+						String k = row.get(key).replaceAll("'", "").replaceAll("X", "").replaceAll("x", ""); // cleans
 																		// the
 																		// "'"
 						cell.setCellValue(k);
@@ -164,7 +186,7 @@ public class DataInsert {
 				++i;
 			}
 			// create the file in the targeted folder
-			FileOutputStream fos = new FileOutputStream("/Users/wusongnie/Desktop/1.xls");
+			FileOutputStream fos = new FileOutputStream(outPath);
 			outputWb.write(fos);
 			fos.flush();
 			System.out.println("存盘完成！");// reminds the user
@@ -181,25 +203,26 @@ public class DataInsert {
 	 * 
 	 * @param filePath
 	 *            表示本文件的路径
+	 * @param NAME 
 	 * @return badInput 表示本文件是否含有异常输入
 	 */
-	public static boolean insertData(String filePath) {
+	public static boolean insertData(String filePath, String NAME) {
 		boolean badInput = false;
 		try {
 			List<String[]> dataList = new ArrayList<String[]>();
-			int startIndex = filePath.indexOf("PS");
-			int endIndex = filePath.indexOf("_工作周报");
+			int startIndex = NAME.indexOf("PS");
+			int endIndex = NAME.indexOf("_工作周报");
 			String CNname = null;
-
-			if (startIndex > 0)
-				CNname = "'" + filePath.substring(startIndex + 2, endIndex) + "'";
-			else
-				return true;
 			ExcelReader excelReader = new ExcelReader();
 			FileInputStream is = new FileInputStream(filePath);
 			XSSFWorkbook wb = new XSSFWorkbook(is);
 
 			XSSFRow row = wb.getSheetAt(0).getRow(0);
+
+			if (startIndex >= 0)
+				CNname = "'" + NAME.substring(startIndex + 2, endIndex) + "'";
+			else
+				return true;
 
 			if (excelReader.getStringCellValue(row.getCell(0)).equalsIgnoreCase("'Quick Look Name'"))
 				return true;
@@ -218,7 +241,7 @@ public class DataInsert {
 			for (int i = 0; i < 5; i++) {
 				row = wb.getSheetAt(0).getRow(2 + i);
 				if (excelReader.getStringCellValue(row.getCell(start + 1)).equals("' '")
-						|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("'0.0'"))
+						|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("'0'"))
 					break;
 
 				String[] datas = new String[14];
@@ -236,7 +259,7 @@ public class DataInsert {
 			for (String[] array : dataList) {
 				map = new HashMap<String, String>();
 				for (int k = 0; k < array.length; k++) {
-					if (array[k].equals("0.0") || array[k].equals("' '")) {
+					if (array[k].equals("0") || array[k].equals("' '")) {
 						array[k] = " ";
 					}
 				}
@@ -274,10 +297,10 @@ public class DataInsert {
 		XSSFRow row = wb.getSheetAt(0).getRow(2);
 		if (excelReader.getStringCellValue(row.getCell(start)).equalsIgnoreCase("'XXX'")
 				|| excelReader.getStringCellValue(row.getCell(start)).equalsIgnoreCase("' '")
-				|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("0.0")
+				|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("0")
 				|| excelReader.getStringCellValue(row.getCell(start + 1)).equals("' '")
 				|| excelReader.getStringCellValue(row.getCell(start + 1)).equalsIgnoreCase("'XXX'")) {
-			return true;
+			return false;
 		}
 		return false;
 	}
@@ -307,7 +330,7 @@ public class DataInsert {
 
 			for (int k = 0; k < table.size(); k++) {
 				temp = table.get(k);
-				if (temp.get("CN_Name").equalsIgnoreCase(excelReader.getStringCellValue((row.getCell(1))))) {
+				if (temp.get("CN_Name").equalsIgnoreCase(excelReader.getStringCellValue((row.getCell(2))))) {
 					for (int j = 0; j < row.getLastCellNum(); j++) {
 						if (!temp.containsKey(colname[j])) {
 							temp.put(colname[j].trim(), excelReader.getStringCellValue((row.getCell(j))));
