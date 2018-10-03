@@ -1,4 +1,4 @@
-# Teradata_Projects
+# Teradata_Full Stack uploader, reader, converter
 #
 #
 #Project ONE
