@@ -1,5 +1,5 @@
-# Teradata_Full Stack uploader, reader, converter
-#
+# Teradata
+#Full Stack uploader, reader, converter
 #
 #Project ONE
 #The very project that handles the file uploading in the front and put the excel file data to mysql database in the back.
